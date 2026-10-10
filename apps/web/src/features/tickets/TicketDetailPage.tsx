@@ -1,17 +1,25 @@
-import { Link, useParams } from 'react-router-dom';
-import { ErrorMessage } from '../../components/ErrorMessage';
-import { Spinner } from '../../components/Spinner';
-import { useReferenceData } from '../../hooks/useReferenceData';
-import { AssignAgentControl } from './components/AssignAgentControl';
-import { StatusActions } from './components/StatusActions';
-import { TicketSummary } from './components/TicketSummary';
-import { useTicket } from './hooks/useTicket';
+import { Link, useParams } from "react-router-dom";
+import { ErrorMessage } from "../../components/ErrorMessage";
+import { Spinner } from "../../components/Spinner";
+import { useReferenceData } from "../../hooks/useReferenceData";
+import { AssignAgentControl } from "./components/AssignAgentControl";
+import { EscalationPanel } from "./components/EscalationPanel";
+import { StatusActions } from "./components/StatusActions";
+import { TicketSummary } from "./components/TicketSummary";
+import { useTicket } from "./hooks/useTicket";
 
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const ticketId = Number(id);
 
-  const { data: ticket, isLoading, error, reload, setData } = useTicket(ticketId);
+  const {
+    data: ticket,
+    isLoading,
+    error,
+    reload,
+    setData,
+  } = useTicket(ticketId);
+
   const reference = useReferenceData();
 
   if (Number.isNaN(ticketId)) {
@@ -51,6 +59,12 @@ export function TicketDetailPage() {
           </div>
 
           <StatusActions ticket={ticket} onUpdated={setData} />
+
+          <EscalationPanel
+            key={ticket.id}
+            ticket={ticket}
+            onUpdated={setData}
+          />
         </div>
 
         <aside className="detail-layout__side">

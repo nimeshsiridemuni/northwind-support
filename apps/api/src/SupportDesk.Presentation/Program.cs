@@ -4,6 +4,8 @@ using SupportDesk.Infrastructure;
 using SupportDesk.Presentation.Extensions;
 using SupportDesk.Presentation.Filters;
 using SupportDesk.Presentation.Middleware;
+using SupportDesk.Application.Contracts.Tickets;
+using SupportDesk.Application.Features.Tickets.Commands.RaiseTicket;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +28,13 @@ builder.Services.AddCors(options => options.AddPolicy(
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+var slaOptions = builder.Configuration
+    .GetSection(SlaOptions.SectionName)
+    .Get<SlaOptions>() ?? new SlaOptions();
+
+builder.Services.AddSingleton(slaOptions);
+builder.Services.AddScoped<TicketTriagePolicy>();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

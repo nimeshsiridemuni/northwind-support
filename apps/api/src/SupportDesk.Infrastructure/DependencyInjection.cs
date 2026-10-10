@@ -10,10 +10,6 @@ using SupportDesk.Infrastructure.Services;
 
 namespace SupportDesk.Infrastructure;
 
-/// <summary>
-/// Wires the domain's repositories and the application's abstractions to their SQL Server /
-/// system implementations.
-/// </summary>
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
@@ -25,13 +21,17 @@ public static class DependencyInjection
                 "Connection string 'Default' is missing. See README.md for local setup.");
 
         services.AddDbContext<SupportDbContext>(options =>
-            options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure()));
+            options.UseSqlServer(
+                connectionString,
+                sql => sql.EnableRetryOnFailure()));
 
-        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<SupportDbContext>());
+        services.AddScoped<IUnitOfWork>(
+            sp => sp.GetRequiredService<SupportDbContext>());
 
         services.AddSingleton<IClock, SystemClock>();
 
         services.AddScoped<ITicketRepository, TicketRepository>();
+        services.AddScoped<ITicketEscalationRepository, TicketEscalationRepository>();
         services.AddScoped<IAgentRepository, AgentRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<ITicketQueries, TicketQueries>();
         services.AddScoped<ICustomerQueries, CustomerQueries>();
         services.AddScoped<IAgentQueries, AgentQueries>();
+        services.AddScoped<IAgentAssignmentQueries, AgentAssignmentQueries>();
         services.AddScoped<ICategoryQueries, CategoryQueries>();
 
         services.AddScoped<SupportDbSeeder>();

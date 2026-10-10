@@ -3,14 +3,6 @@ using SupportDesk.Domain.Exceptions;
 
 namespace SupportDesk.Domain.Aggregates.Tickets;
 
-/// <summary>
-/// A support request raised by a customer. Every change to a ticket goes through one of its
-/// methods, so its rules cannot be bypassed.
-/// </summary>
-/// <remarks>
-/// The customer, the category and the assigned agent are other aggregates and are referenced
-/// by id only.
-/// </remarks>
 public sealed class Ticket : AggregateRoot
 {
     private Ticket()
@@ -18,7 +10,6 @@ public sealed class Ticket : AggregateRoot
         // For EF Core.
     }
 
-    /// <summary>Human-friendly identifier shown to customers, e.g. TCK-0042.</summary>
     public string Reference { get; private set; } = string.Empty;
 
     public string Title { get; private set; } = string.Empty;
@@ -29,7 +20,6 @@ public sealed class Ticket : AggregateRoot
 
     public int CategoryId { get; private set; }
 
-    /// <summary>Null while the ticket is waiting for an owner.</summary>
     public int? AssignedAgentId { get; private set; }
 
     public TicketPriority Priority { get; private set; }
@@ -40,18 +30,15 @@ public sealed class Ticket : AggregateRoot
 
     public DateTime UpdatedAtUtc { get; private set; }
 
-    /// <summary>When the team has committed to responding by. Null when no SLA applies.</summary>
     public DateTime? DueAtUtc { get; private set; }
+
+    public DateTime? SlaStartedAtUtc { get; private set; }
 
     public DateTime? ResolvedAtUtc { get; private set; }
 
-    /// <summary>True while the ticket still needs work from an agent.</summary>
-    public bool IsOpen => Status is not (TicketStatus.Resolved or TicketStatus.Closed);
+    public bool IsOpen =>
+        Status is not (TicketStatus.Resolved or TicketStatus.Closed);
 
-    /// <summary>
-    /// Raises a new ticket for a customer. It starts as <see cref="TicketStatus.New"/>, with no
-    /// owner and no due date.
-    /// </summary>
     public static Ticket Raise(
         string reference,
         string title,
@@ -79,10 +66,6 @@ public sealed class Ticket : AggregateRoot
         };
     }
 
-    /// <summary>
-    /// Moves the ticket through its lifecycle, keeping the resolution timestamp in step.
-    /// </summary>
-    /// <exception cref="BusinessRuleViolationException">The ticket is closed.</exception>
     public void ChangeStatus(TicketStatus status, DateTime nowUtc)
     {
         if (Status == TicketStatus.Closed && status != TicketStatus.Closed)
@@ -102,13 +85,41 @@ public sealed class Ticket : AggregateRoot
         UpdatedAtUtc = nowUtc;
     }
 
-    /// <summary>
-    /// Hands the ticket to an agent, or takes it back off them when <paramref name="agentId"/>
-    /// is null. Whether the agent may take it is checked by the caller, which can see agents.
-    /// </summary>
     public void AssignTo(int? agentId, DateTime nowUtc)
     {
         AssignedAgentId = agentId;
         UpdatedAtUtc = nowUtc;
+    }
+
+    public void SetDueDate(DateTime dueAtUtc, DateTime nowUtc)
+    {
+        if (dueAtUtc <= nowUtc)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(dueAtUtc),
+                "The SLA deadline must be later than the current time.");
+        }
+
+        DueAtUtc = dueAtUtc;
+        SlaStartedAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void EscalatePriority(DateTime newDueAtUtc, DateTime nowUtc)
+    {
+        if (!IsOpen)
+        {
+            throw new BusinessRuleViolationException(
+                "Resolved or closed tickets cannot be escalated.");
+        }
+
+        if (Priority == TicketPriority.Critical)
+        {
+            throw new BusinessRuleViolationException(
+                "The ticket is already Critical and cannot be escalated further.");
+        }
+
+        SetDueDate(newDueAtUtc, nowUtc);
+        Priority = (TicketPriority)((int)Priority + 1);
     }
 }
