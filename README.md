@@ -124,3 +124,23 @@ can follow the same approach.
 I added a regression test for changing Status without typing in
 Search. It failed before the fix and passed afterwards. The existing
 search test also passed, along with the TypeScript and lint checks.
+
+## Task 1.2 — Ticket filtering
+
+Ticket filters now apply in the database query before counting,
+sorting, and pagination. Status, priority, category, customer,
+assigned agent, and unassigned-only filters use exact matches.
+When several filters are supplied, all must match.
+
+Search checks the ticket title, reference, and customer name.
+Leading and trailing spaces are removed, and blank searches
+are ignored.
+
+Filtering is grouped in an ApplyFilters helper so additional
+filters can be added in one place.
+
+Three tests use an in-memory SQLite database to check exact
+priority filtering, combined filters, and customer-name search.
+They also check that the total count is calculated before
+pagination. The full test suite passed: 33 backend tests and
+3 frontend tests.
