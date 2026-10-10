@@ -12,12 +12,12 @@ and move them through their lifecycle.
 You are joining a team that already has this app working. Complete the tasks **in order**.
 Full requirements are in **[`ASSIGNMENT_CANDIDATE.md`](ASSIGNMENT_CANDIDATE.md)**.
 
-| # | Task | Done looks like | Effort |
-| --- | --- | --- | --- |
-| 1 | **Fix a defect, add server-side filtering** | Root cause fixed with a regression test; every list filter applied in the database with a correct count | ~2.5 h |
-| 2 | **Ticket escalation & assignment** | Automatic triage on create, escalation with history, SLA status, UI for all of it | ~7 h |
-| 3 | **Login and authentication** | Agents sign in; API rejects unauthenticated calls; login UI | ~4 h |
-| 4 | **Dockerise the API** *(optional)* | `docker compose up` gives a migrated, seeded API with no baked-in secret | ~1.5 h |
+| #   | Task                                        | Done looks like                                                                                         | Effort |
+| --- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | **Fix a defect, add server-side filtering** | Root cause fixed with a regression test; every list filter applied in the database with a correct count | ~2.5 h |
+| 2   | **Ticket escalation & assignment**          | Automatic triage on create, escalation with history, SLA status, UI for all of it                       | ~7 h   |
+| 3   | **Login and authentication**                | Agents sign in; API rejects unauthenticated calls; login UI                                             | ~4 h   |
+| 4   | **Dockerise the API** _(optional)_          | `docker compose up` gives a migrated, seeded API with no baked-in secret                                | ~1.5 h |
 
 ### Guidance
 
@@ -28,7 +28,7 @@ Full requirements are in **[`ASSIGNMENT_CANDIDATE.md`](ASSIGNMENT_CANDIDATE.md)*
   separately from each other and from the feature work. A single squashed commit is not accepted.
 - **Where the spec is ambiguous**, make a decision, write it down in the README, and move on.
 - **Out of scope:** registration, password reset, roles, OAuth/SSO, refresh tokens, MFA,
-  notifications, CI, caching, visual redesign. Mention them under *Known limitations* instead.
+  notifications, CI, caching, visual redesign. Mention them under _Known limitations_ instead.
 
 ### Submission
 
@@ -53,11 +53,11 @@ npm run api                   # terminal 1: migrates, seeds, then serves the API
 npm run web                   # terminal 2: React dev server
 ```
 
-| What | Where |
-| --- | --- |
-| Web app | http://localhost:5173 |
-| API | https://localhost:7043 (also http://localhost:5043) |
-| Swagger | https://localhost:7043/swagger |
+| What    | Where                                               |
+| ------- | --------------------------------------------------- |
+| Web app | http://localhost:5173                               |
+| API     | https://localhost:7043 (also http://localhost:5043) |
+| Swagger | https://localhost:7043/swagger                      |
 
 In Development the API applies migrations and seeds demo data on startup. **Never commit real
 credentials.**
@@ -75,23 +75,23 @@ Both pass on a clean checkout and neither needs a database.
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `npm run db:up` / `db:down` / `db:reset` | Start / stop / wipe SQL Server |
-| `npm run api` / `npm run web` | Run the API / the React app |
-| `npm run build` | Build both |
-| `npm run lint` / `typecheck` / `format` | Web lint and types / `dotnet format` |
-| `npm run ef -- migrations add <Name>` | Add an EF Core migration |
+| Command                                  | What it does                         |
+| ---------------------------------------- | ------------------------------------ |
+| `npm run db:up` / `db:down` / `db:reset` | Start / stop / wipe SQL Server       |
+| `npm run api` / `npm run web`            | Run the API / the React app          |
+| `npm run build`                          | Build both                           |
+| `npm run lint` / `typecheck` / `format`  | Web lint and types / `dotnet format` |
+| `npm run ef -- migrations add <Name>`    | Add an EF Core migration             |
 
 ## API at a glance
 
-| Endpoint | Description |
-| --- | --- |
-| `GET /api/tickets` | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `sortBy`, `sortDirection`. **Filters are accepted but not applied yet** (Task 1). |
-| `GET /api/tickets/{id}` | One ticket |
-| `POST /api/tickets` | Create a ticket |
-| `PATCH /api/tickets/{id}/status` · `/assignment` | Change status / assignee |
-| `GET /api/customers` · `/api/agents` · `/api/categories` | Reference data |
+| Endpoint                                                 | Description                                                                                                                                                                                        |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/tickets`                                       | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `sortBy`, `sortDirection`. **Filters are accepted but not applied yet** (Task 1). |
+| `GET /api/tickets/{id}`                                  | One ticket                                                                                                                                                                                         |
+| `POST /api/tickets`                                      | Create a ticket                                                                                                                                                                                    |
+| `PATCH /api/tickets/{id}/status` · `/assignment`         | Change status / assignee                                                                                                                                                                           |
+| `GET /api/customers` · `/api/agents` · `/api/categories` | Reference data                                                                                                                                                                                     |
 
 Errors are `ProblemDetails`: `400` validation, `404` not found, `409` conflict or business rule.
 
@@ -100,10 +100,27 @@ and 40 tickets across every status, priority and SLA state.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-| --- | --- |
-| API cannot reach the database | `npm run db:up`, wait ~20 s, check `docker compose ps` |
-| Port 1433 already in use | Change the port in `docker-compose.yml` and `.env` |
-| Browser warns about the certificate | `dotnet dev-certs https --trust`, or use the web app, which proxies |
+| Symptom                                | Fix                                                                         |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| API cannot reach the database          | `npm run db:up`, wait ~20 s, check `docker compose ps`                      |
+| Port 1433 already in use               | Change the port in `docker-compose.yml` and `.env`                          |
+| Browser warns about the certificate    | `dotnet dev-certs https --trust`, or use the web app, which proxies         |
 | Web app shows "Unable to load tickets" | The API is not running, or `VITE_API_PROXY_TARGET` points at the wrong port |
-| SQL Server slow on Apple Silicon | Enable Rosetta in Docker Desktop → Settings → General |
+| SQL Server slow on Apple Silicon       | Enable Rosetta in Docker Desktop → Settings → General                       |
+
+## Task 1.1 — Filter defect (DEFECT-117)
+
+The problem was in the ticket list hook. Its effect watched search
+and pagination changes, but missed status and the other filters.
+This meant changing Status did not send a request. When the user
+typed in Search, that request also included the status selected earlier.
+
+I fixed this by keeping the search input separate from the filters
+used for requests. Search waits until the user stops typing for
+300 ms, while other filter changes send a request immediately.
+The effect now watches the complete query state, so future filters
+can follow the same approach.
+
+I added a regression test for changing Status without typing in
+Search. It failed before the fix and passed afterwards. The existing
+search test also passed, along with the TypeScript and lint checks.
