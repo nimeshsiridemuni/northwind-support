@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ErrorMessage } from '../../components/ErrorMessage';
-import { Spinner } from '../../components/Spinner';
-import { useReferenceData } from '../../hooks/useReferenceData';
-import type { TicketDetail } from '../../types/api';
-import { CreateTicketForm } from './components/CreateTicketForm';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ErrorMessage } from "../../components/ErrorMessage";
+import { Spinner } from "../../components/Spinner";
+import { useReferenceData } from "../../hooks/useReferenceData";
+import { formatDateTime } from "../../lib/format";
+import type { TicketDetail } from "../../types/api";
+import { CreateTicketForm } from "./components/CreateTicketForm";
 
 export function CreateTicketPage() {
   const reference = useReferenceData();
@@ -22,17 +23,65 @@ export function CreateTicketPage() {
         </div>
       </header>
 
-      {reference.isLoading && <Spinner label="Loading customers and categories" />}
+      {reference.isLoading && (
+        <Spinner label="Loading customers and categories" />
+      )}
 
       {reference.error && (
-        <ErrorMessage message={reference.error} onRetry={() => void reference.reload()} />
+        <ErrorMessage
+          message={reference.error}
+          onRetry={() => void reference.reload()}
+        />
       )}
 
       {created && (
-        <div className="card notice" role="status">
-          <p>
-            Raised <strong>{created.reference}</strong> for {created.customer.name}.
+        <div className="card notice">
+          <p role="status">
+            Raised <strong>{created.reference}</strong> for{" "}
+            {created.customer.name}.
           </p>
+
+          <h2>Triage result</h2>
+
+          <dl className="summary">
+            <div>
+              <dt>Priority</dt>
+              <dd>
+                {created.priority}
+                {created.triage && (
+                  <span className="summary__note">
+                    {created.triage.priorityReason}
+                  </span>
+                )}
+              </dd>
+            </div>
+
+            <div>
+              <dt>SLA deadline</dt>
+              <dd>
+                {formatDateTime(created.dueAtUtc)}
+                {created.triage && (
+                  <span className="summary__note">
+                    Window: {created.triage.slaWindowHours} hours.{" "}
+                    {created.triage.slaReason}
+                  </span>
+                )}
+              </dd>
+            </div>
+
+            <div>
+              <dt>Assigned agent</dt>
+              <dd>
+                {created.assignedAgent?.fullName ?? "Unassigned"}
+                {created.triage && (
+                  <span className="summary__note">
+                    {created.triage.assignmentReason}
+                  </span>
+                )}
+              </dd>
+            </div>
+          </dl>
+
           <div className="button-row">
             <button
               type="button"
@@ -41,7 +90,12 @@ export function CreateTicketPage() {
             >
               Open {created.reference}
             </button>
-            <button type="button" className="button button--ghost" onClick={() => setCreated(undefined)}>
+
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={() => setCreated(undefined)}
+            >
               Raise another
             </button>
           </div>

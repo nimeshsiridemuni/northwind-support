@@ -144,3 +144,25 @@ priority filtering, combined filters, and customer-name search.
 They also check that the total count is calculated before
 pagination. The full test suite passed: 33 backend tests and
 3 frontend tests.
+
+## Task 2 — Triage, SLA, and escalation
+
+New tickets use the selected priority, or Medium if none is selected.
+If the category is flagged as Critical, that takes priority over the
+user’s selection.
+
+SLA windows are configurable and default to 4 hours for Critical,
+8 for High, 24 for Medium, and 72 for Low. Premium customers get
+half that time, with a minimum window of one hour.
+
+Tickets are assigned to active agents who have available capacity.
+Categories that require a specialist also require a matching agent
+specialization. The agent with the fewest open tickets is selected;
+ties are resolved by agent ID. If no agent qualifies, the ticket
+remains unassigned.
+
+Escalating a ticket moves its priority up one level and starts a new
+SLA window from the time of escalation. The current owner stays
+assigned if they are still eligible; otherwise, another eligible
+agent is selected. Critical, Resolved, and Closed tickets cannot
+be escalated, and rejected requests leave the ticket unchanged.
