@@ -43,6 +43,7 @@ function TicketView({
   return (
     <>
       <TicketSummary ticket={ticket} />
+
       <EscalationPanel
         ticket={ticket}
         onUpdated={(updated) => {
@@ -58,10 +59,6 @@ function fillForm(reason = "The customer impact has increased.") {
   fireEvent.change(screen.getByLabelText("Escalation reason"), {
     target: { value: reason },
   });
-
-  fireEvent.change(screen.getByLabelText("Escalated by"), {
-    target: { value: "Development Agent" },
-  });
 }
 
 describe("EscalationPanel", () => {
@@ -72,6 +69,7 @@ describe("EscalationPanel", () => {
 
   it("does not send a request when the reason is too short", async () => {
     render(<TicketView onUpdated={vi.fn()} />);
+
     await screen.findByText("No escalations recorded.");
 
     fillForm("four");
@@ -85,6 +83,7 @@ describe("EscalationPanel", () => {
     fireEvent.submit(button.closest("form")!);
 
     expect(ticketsApi.escalateTicket).not.toHaveBeenCalled();
+
     expect(screen.getByRole("alert")).toHaveTextContent("Enter a reason");
   });
 
@@ -99,6 +98,7 @@ describe("EscalationPanel", () => {
     );
 
     render(<TicketView onUpdated={onUpdated} />);
+
     await screen.findByText("No escalations recorded.");
 
     fillForm();
@@ -116,7 +116,7 @@ describe("EscalationPanel", () => {
     expect(ticketsApi.getEscalations).toHaveBeenCalledTimes(1);
   });
 
-  it("updates the displayed ticket and reloads history after success", async () => {
+  it("sends only the reason and refreshes the ticket after success", async () => {
     const onUpdated = vi.fn();
 
     const updated: TicketDetail = {
@@ -129,7 +129,10 @@ describe("EscalationPanel", () => {
     vi.mocked(ticketsApi.escalateTicket).mockResolvedValue(updated);
 
     render(<TicketView onUpdated={onUpdated} />);
+
     await screen.findByText("No escalations recorded.");
+
+    expect(screen.queryByLabelText("Escalated by")).not.toBeInTheDocument();
 
     fillForm();
 
@@ -140,8 +143,13 @@ describe("EscalationPanel", () => {
       expect(ticketsApi.getEscalations).toHaveBeenCalledTimes(2);
     });
 
+    expect(ticketsApi.escalateTicket).toHaveBeenCalledWith(makeTicket().id, {
+      reason: "The customer impact has increased.",
+    });
+
     expect(screen.getByText("Critical")).toBeInTheDocument();
     expect(screen.getByText("Within SLA")).toBeInTheDocument();
+
     expect(screen.getByLabelText("Escalation reason")).toHaveValue("");
   });
 });

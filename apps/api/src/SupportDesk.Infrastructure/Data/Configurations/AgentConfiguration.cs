@@ -8,24 +8,37 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
 {
     public void Configure(EntityTypeBuilder<Agent> builder)
     {
-        builder.ToTable("Agents", t =>
-            t.HasCheckConstraint("CK_Agents_MaxOpenTickets", "[MaxOpenTickets] > 0"));
+        builder.ToTable("Agents", table =>
+            table.HasCheckConstraint(
+                "CK_Agents_MaxOpenTickets",
+                "[MaxOpenTickets] > 0"));
 
-        builder.HasKey(a => a.Id);
+        builder.HasKey(agent => agent.Id);
 
-        builder.Property(a => a.FullName).HasMaxLength(200).IsRequired();
+        builder.Property(agent => agent.FullName)
+            .HasMaxLength(200)
+            .IsRequired();
 
-        builder.Property(a => a.Email).HasMaxLength(256).IsRequired();
+        builder.Property(agent => agent.Email)
+            .HasMaxLength(256)
+            .IsRequired();
 
-        builder.Property(a => a.CreatedAtUtc).HasColumnType("datetime2(3)");
+        builder.Property(agent => agent.PasswordHash)
+            .HasMaxLength(512);
 
-        builder.HasIndex(a => a.Email).IsUnique().HasDatabaseName("UQ_Agents_Email");
+        builder.Property(agent => agent.CreatedAtUtc)
+            .HasColumnType("datetime2(3)");
 
-        builder.HasMany(a => a.Specializations)
+        builder.HasIndex(agent => agent.Email)
+            .IsUnique()
+            .HasDatabaseName("UQ_Agents_Email");
+
+        builder.HasMany(agent => agent.Specializations)
             .WithOne()
-            .HasForeignKey(s => s.AgentId)
+            .HasForeignKey(specialization => specialization.AgentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Navigation(a => a.Specializations).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.Navigation(agent => agent.Specializations)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

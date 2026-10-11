@@ -1,6 +1,5 @@
 import type {
   CreateTicketPayload,
-  EscalateTicketPayload,
   PagedResult,
   TicketDetail,
   TicketEscalation,
@@ -63,10 +62,10 @@ export const ticketsApi = {
       body: JSON.stringify({ agentId }),
     }),
 
-  escalateTicket: (id: number, payload: EscalateTicketPayload) =>
+  escalateTicket: (id: number, payload: { reason: string }) =>
     request<TicketDetail>(`/tickets/${id}/escalate`, {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ reason: payload.reason }),
     }),
 
   getEscalations: (id: number) =>

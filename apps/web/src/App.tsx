@@ -1,7 +1,16 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { clearAuthSession } from "./features/auth/authSession";
+import { useAuthSession } from "./features/auth/useAuthSession";
 
-/** Application shell: the header, the navigation, and wherever the router puts the page. */
 export function App() {
+  const session = useAuthSession();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    clearAuthSession();
+    void navigate("/login", { replace: true });
+  }
+
   return (
     <div className="app">
       <header className="app__header">
@@ -13,6 +22,18 @@ export function App() {
           <NavLink to="/tickets">Tickets</NavLink>
           <NavLink to="/customers">Customers</NavLink>
         </nav>
+
+        <div className="app__account">
+          <span className="app__agent-name">{session?.agent.fullName}</span>
+
+          <button
+            type="button"
+            className="button button--ghost"
+            onClick={handleLogout}
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       <main className="app__main">

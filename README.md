@@ -166,3 +166,68 @@ SLA window from the time of escalation. The current owner stays
 assigned if they are still eligible; otherwise, another eligible
 agent is selected. Critical, Resolved, and Closed tickets cannot
 be escalated, and rejected requests leave the ticket unchanged.
+
+## Task 3 — Authentication
+
+Agents can now sign in using their email and password. Passwords are
+stored as salted hashes using Microsoft's PasswordHasher. Incorrect
+credentials and inactive accounts return the same 401 response.
+If a password hash needs upgrading, it is updated after a successful
+password check.
+
+Login returns a JWT and the agent's details. Tokens expire after
+30 minutes by default. The API checks the signature, issuer,
+audience, and expiry, and confirms that the agent is still active.
+Login is public; the other API endpoints require authentication.
+Swagger remains available in Development.
+
+The login page validates the inputs, displays errors, and disables
+the form while signing in. Visitors who are not signed in are
+redirected to login, then returned to their original page after
+successful authentication. The API client attaches the token to
+requests and clears the session when it receives a 401 response.
+
+I used sessionStorage to keep the login across page refreshes in
+the same tab. JavaScript can access this storage, so XSS prevention
+remains important. Signing out removes the browser session, but
+an issued token remains valid until it expires unless the agent
+is deactivated.
+
+Escalation no longer asks the user to enter an actor. The server
+records the signed-in agent's name and ID automatically.
+
+### Development setup
+
+Run these commands from the repository root in PowerShell:
+
+```powershell
+$jwtSigningKey = [Guid]::NewGuid().ToString("N") + [Guid]::NewGuid().ToString("N")
+
+dotnet user-secrets set "Jwt:SigningKey" "$jwtSigningKey" --project apps/api/src/SupportDesk.Presentation
+
+dotnet user-secrets set "DevelopmentAuth:Password" "Local_Agent_Password1" --project apps/api/src/SupportDesk.Presentation
+```
+
+Start SQL Server with `npm run db:up`, then start the API with
+`npm run api`. Development startup applies migrations and creates
+password hashes for demo agents that do not already have them.
+Existing hashes are left unchanged. The secret values are stored
+outside the repository.
+
+Development login:
+
+- Email: `alex.turner@northwind-support.example`
+- Password: `Local_Agent_Password1`
+
+### Testing
+
+Backend tests cover successful login, rejected credentials,
+inactive agents, missing password hashes, hash upgrades, and
+password hashing. Frontend tests cover login validation, redirects,
+failed login, successful login, logout, token attachment, 401
+responses, and session expiry.
+
+I also checked login and `/api/auth/me` against the running API.
+Requests without a token, incorrect passwords, and inactive-agent
+login returned 401. A browser check confirmed that escalation
+history records `Alex Turner (#1)` without an actor input.

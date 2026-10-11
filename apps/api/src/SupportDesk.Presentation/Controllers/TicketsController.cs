@@ -1,3 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SupportDesk.Application.Contracts.Common;
 using SupportDesk.Application.Contracts.Tickets;
@@ -14,6 +17,7 @@ namespace SupportDesk.Presentation.Controllers;
 [ApiController]
 [Route("api/tickets")]
 [Produces("application/json")]
+[Authorize]
 public sealed class TicketsController : ControllerBase
 {
     [HttpGet]
@@ -38,7 +42,10 @@ public sealed class TicketsController : ControllerBase
     {
         var created = await handler.HandleAsync(request, ct);
 
-        return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        return CreatedAtAction(
+            nameof(Get),
+            new { id = created.Id },
+            created);
     }
 
     [HttpPatch("{id:int}/status")]
@@ -58,12 +65,40 @@ public sealed class TicketsController : ControllerBase
         handler.HandleAsync(id, request, ct);
 
     [HttpPost("{id:int}/escalate")]
-    public Task<TicketDetailDto> Escalate(
+    public async Task<ActionResult<TicketDetailDto>> Escalate(
         int id,
-        EscalateTicketRequest request,
+        EscalateTicketBody body,
         [FromServices] EscalateTicketCommandHandler handler,
-        CancellationToken ct) =>
-        handler.HandleAsync(id, request, ct);
+        CancellationToken ct)
+    {
+        var subject = User.FindFirstValue(
+            JwtRegisteredClaimNames.Sub);
+
+        var agentName = User.Identity?.Name;
+
+        if (!int.TryParse(subject, out var agentId) ||
+            agentId <= 0 ||
+            string.IsNullOrWhiteSpace(agentName))
+        {
+            return Unauthorized();
+        }
+
+        // Keep the actor within the history column's 100-character limit.
+        // Include the agent ID so agents with identical names remain distinct.
+        var displayName = agentName.Length > 80
+            ? agentName[..80]
+            : agentName;
+
+        var actor = $"{displayName} (#{agentId})";
+
+        var request = new EscalateTicketRequest(
+            body.Reason,
+            actor);
+
+        var updated = await handler.HandleAsync(id, request, ct);
+
+        return Ok(updated);
+    }
 
     [HttpGet("{id:int}/escalations")]
     public Task<IReadOnlyList<TicketEscalationDto>> GetEscalations(
@@ -72,3 +107,5 @@ public sealed class TicketsController : ControllerBase
         CancellationToken ct) =>
         handler.HandleAsync(id, ct);
 }
+
+public sealed record EscalateTicketBody(string Reason);
