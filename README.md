@@ -108,97 +108,72 @@ and 40 tickets across every status, priority and SLA state.
 | Web app shows "Unable to load tickets" | The API is not running, or `VITE_API_PROXY_TARGET` points at the wrong port |
 | SQL Server slow on Apple Silicon       | Enable Rosetta in Docker Desktop → Settings → General                       |
 
-## Task 1.1 — Filter defect (DEFECT-117)
+# Candidate Submission Notes - Nimesh Siridemuni
 
-The problem was in the ticket list hook. Its effect watched search
-and pagination changes, but missed status and the other filters.
-This meant changing Status did not send a request. When the user
-typed in Search, that request also included the status selected earlier.
+# Northwind Support Desk
 
-I fixed this by keeping the search input separate from the filters
-used for requests. Search waits until the user stops typing for
-300 ms, while other filter changes send a request immediately.
-The effect now watches the complete query state, so future filters
-can follow the same approach.
+A support desk built with .NET 10, React, TypeScript, and SQL Server.
+The submission includes ticket filtering, automatic triage and assignment,
+SLA tracking, escalation history, agent login, and a Dockerised API.
 
-I added a regression test for changing Status without typing in
-Search. It failed before the fix and passed afterwards. The existing
-search test also passed, along with the TypeScript and lint checks.
+All four assessment tasks are implemented. The work was committed as it
+progressed. Design notes are in [APPROACH.md](APPROACH.md).
 
-## Task 1.2 — Ticket filtering
+## Run with Docker
 
-Ticket filters now apply in the database query before counting,
-sorting, and pagination. Status, priority, category, customer,
-assigned agent, and unassigned-only filters use exact matches.
-When several filters are supplied, all must match.
+Prerequisites: Docker Desktop with Linux containers, Node.js, and npm.
+The .NET 10 SDK is also required to run backend tests locally.
 
-Search checks the ticket title, reference, and customer name.
-Leading and trailing spaces are removed, and blank searches
-are ignored.
+Run from the repository root in PowerShell:
 
-Filtering is grouped in an ApplyFilters helper so additional
-filters can be added in one place.
+```powershell
+Copy-Item .env.example .env
 
-Three tests use an in-memory SQLite database to check exact
-priority filtering, combined filters, and customer-name search.
-They also check that the total count is calculated before
-pagination. The full test suite passed: 33 backend tests and
-3 frontend tests.
+$dockerJwtKey = [Guid]::NewGuid().ToString("N") + [Guid]::NewGuid().ToString("N")
+$envText = (Get-Content .env -Raw) -replace '(?m)^JWT_SIGNING_KEY=.*$', "JWT_SIGNING_KEY=$dockerJwtKey"
+Set-Content .env $envText
 
-## Task 2 — Triage, SLA, and escalation
+docker compose up -d --build --wait
+npm install
+```
 
-New tickets use the selected priority, or Medium if none is selected.
-If the category is flagged as Critical, that takes priority over the
-user’s selection.
+In a separate terminal:
 
-SLA windows are configurable and default to 4 hours for Critical,
-8 for High, 24 for Medium, and 72 for Low. Premium customers get
-half that time, with a minimum window of one hour.
+```powershell
+$env:VITE_API_PROXY_TARGET = "http://localhost:5080"
+npm run web
+```
 
-Tickets are assigned to active agents who have available capacity.
-Categories that require a specialist also require a matching agent
-specialization. The agent with the fewest open tickets is selected;
-ties are resolved by agent ID. If no agent qualifies, the ticket
-remains unassigned.
+Open http://localhost:5173.
 
-Escalating a ticket moves its priority up one level and starts a new
-SLA window from the time of escalation. The current owner stays
-assigned if they are still eligible; otherwise, another eligible
-agent is selected. Critical, Resolved, and Closed tickets cannot
-be escalated, and rejected requests leave the ticket unchanged.
+Development login:
 
-## Task 3 — Authentication
+- Email: `alex.turner@northwind-support.example`
+- Password: `Local_Agent_Password1`
 
-Agents can now sign in using their email and password. Passwords are
-stored as salted hashes using Microsoft's PasswordHasher. Incorrect
-credentials and inactive accounts return the same 401 response.
-If a password hash needs upgrading, it is updated after a successful
-password check.
+| Service             | Address                       |
+| ------------------- | ----------------------------- |
+| Frontend            | http://localhost:5173         |
+| Container API       | http://localhost:5080/api     |
+| Database health     | http://localhost:5080/health  |
+| Development Swagger | http://localhost:5080/swagger |
 
-Login returns a JWT and the agent's details. Tokens expire after
-30 minutes by default. The API checks the signature, issuer,
-audience, and expiry, and confirms that the agent is still active.
-Login is public; the other API endpoints require authentication.
-Swagger remains available in Development.
+Compose reads `.env`. The JWT key is required; the example leaves it blank
+so each developer generates their own. The database and agent passwords
+in `.env.example` are local development fixtures. Do not use them for
+production or commit `.env`.
 
-The login page validates the inputs, displays errors, and disables
-the form while signing in. Visitors who are not signed in are
-redirected to login, then returned to their original page after
-successful authentication. The API client attaches the token to
-requests and clears the session when it receives a 401 response.
+Development startup applies migrations, seeds 40 demo tickets on an empty
+database, and adds password hashes to demo agents without existing hashes.
+Existing hashes are preserved. Changing the seed password does not reset
+existing credentials.
 
-I used sessionStorage to keep the login across page refreshes in
-the same tab. JavaScript can access this storage, so XSS prevention
-remains important. Signing out removes the browser session, but
-an issued token remains valid until it expires unless the agent
-is deactivated.
+`docker compose down` stops and removes the containers while keeping the
+database volume. Adding `-v` deletes the database volume and its data.
 
-Escalation no longer asks the user to enter an actor. The server
-records the signed-in agent's name and ID automatically.
+## Run the API directly
 
-### Development setup
-
-Run these commands from the repository root in PowerShell:
+Use the .NET 10 SDK. Set the API's local secrets:
 
 ```powershell
 $jwtSigningKey = [Guid]::NewGuid().ToString("N") + [Guid]::NewGuid().ToString("N")
@@ -206,28 +181,182 @@ $jwtSigningKey = [Guid]::NewGuid().ToString("N") + [Guid]::NewGuid().ToString("N
 dotnet user-secrets set "Jwt:SigningKey" "$jwtSigningKey" --project apps/api/src/SupportDesk.Presentation
 
 dotnet user-secrets set "DevelopmentAuth:Password" "Local_Agent_Password1" --project apps/api/src/SupportDesk.Presentation
+
+npm run db:up
+npm run api
 ```
 
-Start SQL Server with `npm run db:up`, then start the API with
-`npm run api`. Development startup applies migrations and creates
-password hashes for demo agents that do not already have them.
-Existing hashes are left unchanged. The secret values are stored
-outside the repository.
+The root `.env` still needs the Docker signing key because Compose validates
+its configuration when starting SQL Server.
 
-Development login:
+The direct API listens on http://localhost:5043 and https://localhost:7043.
+To use it from the frontend:
 
-- Email: `alex.turner@northwind-support.example`
-- Password: `Local_Agent_Password1`
+```powershell
+$env:VITE_API_PROXY_TARGET = "http://localhost:5043"
+npm run web
+```
 
-### Testing
+Root `.env` values are not automatically loaded by `dotnet run`; use user
+secrets or process environment variables for direct API configuration.
 
-Backend tests cover successful login, rejected credentials,
-inactive agents, missing password hashes, hash upgrades, and
-password hashing. Frontend tests cover login validation, redirects,
-failed login, successful login, logout, token attachment, 401
-responses, and session expiry.
+## Task 1 — Defect and filtering
 
-I also checked login and `/api/auth/me` against the running API.
-Requests without a token, incorrect passwords, and inactive-agent
-login returned 401. A browser check confirmed that escalation
-history records `Alex Turner (#1)` without an actor input.
+DEFECT-117 came from the ticket-list effect watching search and pagination
+but missing the other filters. Changing Status updated the controls without
+making a request. Typing in Search then sent the previously selected status.
+
+The hook now separates the search input from the applied query. Search waits
+for a 300 ms pause in typing; other filters apply immediately. The request
+effect watches the complete query state. The status-only regression test
+failed before the fix and passed afterward.
+
+Server-side filters apply before counting, sorting, and pagination.
+Status, priority, category, customer, assigned agent, and unassigned-only
+filters use exact matches and combine with AND. Search trims whitespace
+and checks title, reference, and customer name. Filtering is grouped in
+`ApplyFilters`, with a separate helper for derived SLA filtering.
+
+## Task 2 — Triage, SLA, and escalation
+
+New tickets use the requested priority, defaulting to Medium. A category's
+Critical flag overrides that selection.
+
+SLA windows come from the `Sla` configuration section. Defaults are Critical
+4 hours, High 8, Medium 24, and Low 72. Premium customers receive half the
+window, with a minimum of one hour. Create and escalate share the same policy.
+
+Assignment considers active agents below their open-ticket limit. Categories
+requiring a specialist also require a matching specialization. The lowest
+open-ticket count wins, with agent ID breaking ties. If nobody qualifies,
+the ticket stays unassigned. Resolved and Closed tickets do not count as open.
+
+Escalation raises priority one level and starts a new SLA window from the
+escalation time. An eligible owner is retained; otherwise, another eligible
+agent is selected. Critical, Resolved, and Closed tickets are rejected
+without saving changes. Ticket changes and the history entry are saved
+through the same unit of work.
+
+SLA state is derived from timestamps. Unresolved tickets become At Risk
+when 25% or less of the current window remains. The exact deadline is
+At Risk; a later time is Breached. Resolution on or before the deadline
+is Met. Tickets without a deadline have No SLA.
+
+The frontend shows triage results, uses one SLA indicator, supports SLA
+filtering, and displays escalation history newest first. Escalation validates
+the reason, disables submission while pending, and preserves the displayed
+ticket when the API rejects the request.
+
+Database changes add the SLA start timestamp, password hash, and escalation
+history. Older tickets use creation time when no SLA start is stored.
+History preserves previous and new priority, owner, and deadline, plus
+reason, actor, and time. Restricted foreign keys preserve its references.
+The `(TicketId, EscalatedAtUtc, Id)` index supports per-ticket history lookup
+and stable ordering.
+
+## Task 3 — Authentication
+
+Agents sign in with email and password. Microsoft's PasswordHasher stores
+salted hashes and supports hash upgrades after successful verification.
+Wrong credentials and inactive accounts return the same 401 response.
+
+Login returns a JWT and agent details. Tokens expire after 30 minutes by
+default. The API checks signature, issuer, audience, expiry, and whether
+the agent is still active. A central authorization policy protects endpoints.
+Login and database health are public; Swagger is available in Development.
+
+The frontend validates login, shows errors, and disables the form while
+pending. Protected routes preserve the requested destination. The API client
+attaches the token and clears the session after a protected request returns 401. Expiry and logout also clear the session.
+
+I chose sessionStorage to retain login across refreshes in the same tab.
+It is accessible to JavaScript, so preventing XSS remains important.
+Logout clears the browser session but does not revoke an issued token.
+
+Escalation accepts only the reason from the browser. The server records
+the authenticated agent's name and ID, such as `Alex Turner (#1)`.
+
+## Task 4 — Docker
+
+`apps/api/Dockerfile` builds from the repository root. It restores project
+files and shared build configuration before copying source, then publishes
+with the .NET 10 SDK. The final image contains the ASP.NET runtime and
+published application, runs as `app`, and listens on HTTP port 8080.
+
+`.dockerignore` excludes build outputs, dependencies, Git data, local
+environment files, certificates, and the web app. Published appsettings files
+are removed from the runtime image. Connection string, signing key, and
+environment name are supplied at runtime.
+
+Compose exposes the API on localhost:5080, connects to SQL Server by service
+name, and waits for database health before starting the API. `/health` checks
+database connectivity without requiring a token.
+
+Verification completed:
+
+- Both containers became healthy; `/health` returned `Healthy`.
+- A separate Compose project with an empty volume seeded 40 tickets and
+  allowed Alex Turner to log in. It used API port 5081 and was removed afterward.
+- Changing a C# file rebuilt the application while `RUN dotnet restore`
+  remained `CACHED`.
+- `docker compose exec api whoami` returned `app`.
+- Docker reported the API image as 464 MB and the SDK image as 1.3 GB.
+- The frontend worked with `VITE_API_PROXY_TARGET=http://localhost:5080`.
+
+Automatic migrations and demo seeding are Development conveniences.
+For production, I would apply a reviewed migration script or migration
+bundle as a separate deployment step using a migration account. This avoids
+multiple API instances competing to change the schema and lets the running
+application use narrower database permissions. Production startup does not
+seed development credentials.
+
+## Testing
+
+Stop the directly running API before building on Windows to avoid executable
+file locks.
+
+```powershell
+npm run test
+npm run build
+npm run typecheck
+npm run lint
+```
+
+The latest focused runs passed 101 backend unit tests and 18 frontend tests.
+`npm run test` also runs the architecture tests. Automated tests do not require
+the Docker SQL Server.
+
+Tests cover filter counts and pagination, combined filters, triage rules,
+assignment capacity and specialization, SLA boundaries, escalation rules and
+history, password verification, login, redirects, logout, and session expiry.
+
+Manual checks covered SQL Server SLA filtering across all five states,
+login and `/api/auth/me`, rejected anonymous requests, inactive agents,
+authenticated escalation history, Docker startup, and frontend connectivity.
+The SQL Server-specific SLA filter was checked against the running database;
+SQLite tests cover the other query filters.
+
+## AI usage
+
+I used ChatGPT/Codex to help inspect the defect, draft code and tests, explain
+errors, and prepare setup instructions. I applied the changes locally and
+checked them through tests, builds, lint, typechecking, and API/browser checks.
+
+I retained the shared triage-policy approach because create and escalate
+need the same rules. I changed the temporary actor input to use the authenticated
+identity once login was implemented.
+
+AI-generated code also needed corrections: `Date.now()` in React render failed
+the purity lint rule, so expiry handling moved into the session store. A test
+mock returned `Task` instead of `Task<int>` and was corrected. These failures
+reinforced the need to verify generated code.
+
+## Known limitations
+
+- Assignment eligibility is checked before saving; concurrent requests could
+  exceed an agent's capacity. No concurrency stress test was performed.
+- Session storage is exposed to JavaScript. There are no refresh tokens or
+  server-side logout revocation.
+- Automated tests do not replace a full browser end-to-end suite or load tests.
+- Registration, password reset, roles, SSO, MFA, notifications, background jobs,
+  CI/CD, and deployment beyond the Docker setup are outside this assessment.
